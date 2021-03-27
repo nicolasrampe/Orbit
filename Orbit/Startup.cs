@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Orbit.BL;
 using Orbit.DAL;
 
 namespace Orbit
@@ -26,6 +27,11 @@ namespace Orbit
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddCors(c =>
+            {
+                c.AddPolicy("AllowOrigin", options => options.WithOrigins("http://localhost:4200"));
+            });
+            services.AddTransient<IStudentBL, StudentBL>();
             services.AddDbContext<MyDbContext>();
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
@@ -41,7 +47,8 @@ namespace Orbit
             {
                 app.UseHsts();
             }
-
+            app.UseCors(options => options.WithOrigins("http://localhost:4200").AllowAnyMethod().AllowAnyHeader());
+            
             app.UseHttpsRedirection();
             app.UseMvc();
         }

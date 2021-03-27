@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Orbit.BL;
 using Orbit.DAL;
 using Orbit.Model;
 
@@ -12,20 +14,20 @@ namespace Orbit.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [EnableCors("AllowOrigin")]
     public class StudentsController : ControllerBase
     {
-        private readonly MyDbContext _context;
-
-        public StudentsController(MyDbContext context)
+        private readonly IStudentBL _studentBL;
+        public StudentsController(IStudentBL studentBL)
         {
-            _context = context;
+            _studentBL = studentBL;
         }
 
         // GET: api/Students
         [HttpGet]
         public IEnumerable<Student> GetStudents()
         {
-            return _context.Students;
+            return _studentBL.GetStudent();
         }
 
         // GET: api/Students/5
@@ -36,15 +38,11 @@ namespace Orbit.Controllers
             {
                 return BadRequest(ModelState);
             }
-
-            var student = await _context.Students.FindAsync(id);
-
-            if (student == null)
-            {
+            Student student = await _studentBL.GetStudent(id);
+            if (student != null)
+                return Ok(student);
+            else
                 return NotFound();
-            }
-
-            return Ok(student);
         }
 
         // PUT: api/Students/5
@@ -60,41 +58,30 @@ namespace Orbit.Controllers
             {
                 return BadRequest();
             }
-
-            _context.Entry(student).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!StudentExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            Student studentUpdated = await _studentBL.PutStudentAsync(id, student);
+            if (studentUpdated == null)
+                return BadRequest();
+            else
+                return Ok(studentUpdated);
         }
 
         // POST: api/Students
         [HttpPost]
         public async Task<IActionResult> PostStudent([FromBody] Student student)
         {
+            if (student == null)
+            {
+                return BadRequest("Student object is null");
+            }
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-
-            _context.Students.Add(student);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetStudent", new { id = student.Id }, student);
+            bool inserted = _studentBL.PostStudentAsync(student);
+            if (inserted)
+                return CreatedAtAction("GetStudent", new { id = student.Id }, student);
+            else
+                return BadRequest("Student was not inserted. Check and Try Again");
         }
 
         // DELETE: api/Students/5
@@ -106,21 +93,16 @@ namespace Orbit.Controllers
                 return BadRequest(ModelState);
             }
 
-            var student = await _context.Students.FindAsync(id);
+            var student = await _studentBL.GetStudent(id);
             if (student == null)
             {
                 return NotFound();
             }
 
-            _context.Students.Remove(student);
-            await _context.SaveChangesAsync();
+            _studentBL.DeleteStudentAsync(student);
 
             return Ok(student);
         }
 
-        private bool StudentExists(int id)
-        {
-            return _context.Students.Any(e => e.Id == id);
-        }
     }
 }
